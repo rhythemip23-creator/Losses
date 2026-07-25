@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mondelez | CEO Loss Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Progress rail -->
+<div id="progress-rail"><div id="progress-fill"></div></div>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="upl-logo">MONDELEZ</div>
+  <div class="upl-title">CEO Loss Analytics <span>Dashboard</span></div>
+  <div class="upl-sub">Upload your manufacturing loss Excel file — all KPIs, charts and insights generate instantly.</div>
+  <div class="drop-zone" id="drop-zone">
+    <div class="drop-icon">📊</div>
+    <div class="drop-label">Drag &amp; drop Excel file here</div>
+    <div class="drop-hint">.xlsx · .xls · .csv supported</div>
+    <button class="drop-btn" onclick="document.getElementById('file-input').click()">📂 Browse File</button>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+  </div>
+  <div id="upl-err" class="upl-msg upl-err"></div>
+  <div id="upl-prog" class="upl-msg upl-prog"></div>
+  <div class="col-hint">
+    <h4>Required columns</h4>
+    <div class="col-tags">
+      <span class="col-tag">Date</span><span class="col-tag">Operation</span>
+      <span class="col-tag">Equipment</span><span class="col-tag">Failure Description</span>
+      <span class="col-tag">Loss Category</span><span class="col-tag">Loss Type</span>
+      <span class="col-tag">Equipment Downtime</span><span class="col-tag">line downtime</span>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" style="display:none;">
+
+  <div id="topbar">
+    <h1>
+      <span class="logo-badge">MONDELEZ</span>
+      <span class="title-text">5 Star</span>
+      <span class="title-sub">· CEO Loss Analytics Dashboard</span>
+    </h1>
+    <button id="new-file-btn" onclick="showUpload()">⬆ Upload New File</button>
+  </div>
+
+  <div id="filterbar">
+    <label>Filter:</label>
+    <select id="f-month"><option value="">All Months</option></select>
+    <select id="f-op"><option value="">All Operations</option></select>
+    <select id="f-eq"><option value="">All Equipment</option></select>
+    <select id="f-lc"><option value="">All Loss Categories</option></select>
+    <select id="f-lt"><option value="">All Loss Types</option></select>
+    <div class="fbar-divider"></div>
+    <label>View by:</label>
+    <div class="toggle-wrap">
+      <button class="tbtn active" id="btn-dt" onclick="setMetric('downtime')">⏱ Downtime (min)</button>
+      <button class="tbtn" id="btn-ev" onclick="setMetric('events')"># No. of Losses</button>
+    </div>
+  </div>
+  <div id="metric-hint-bar">Showing: <strong id="metric-hint">Equipment Downtime (minutes)</strong></div>
+
+  <div id="main">
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- Row 1: Donuts + Monthly -->
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Planned vs Unplanned Loss</div>
+        <div class="card-sub">Event count &amp; downtime split</div>
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">Events</div>
+            <div class="chart-wrap" style="width:140px;height:140px;"><canvas id="c-donut-ev"></canvas></div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">Downtime</div>
+            <div class="chart-wrap" style="width:140px;height:140px;"><canvas id="c-donut-dt"></canvas></div>
+          </div>
+          <div style="font-size:12px;color:var(--dim);line-height:2;">
+            <div><span style="color:var(--green);">■</span> Planned</div>
+            <div><span style="color:var(--red);">■</span> Unplanned</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Monthly Loss Trend</div>
+        <div class="card-sub">Planned vs Unplanned by month</div>
+        <div class="chart-wrap" style="height:180px;"><canvas id="c-monthly"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Operation + Machine -->
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Operation-wise Loss</div>
+        <div class="card-sub" id="sub-op">Ranked by equipment downtime</div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="c-op"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Machine-wise Loss</div>
+        <div class="card-sub" id="sub-eq">Top 15 equipment by downtime</div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="c-eq"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 3: Loss Type + Loss Category -->
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Loss Type Analysis</div>
+        <div class="card-sub">Downtime by loss type</div>
+        <div class="chart-wrap" style="height:240px;"><canvas id="c-lt"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Loss Category Analysis</div>
+        <div class="card-sub">Planned vs Unplanned total</div>
+        <div class="chart-wrap" style="height:240px;"><canvas id="c-lc"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 5: Top Failures + Pareto -->
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Top 15 Failure Descriptions</div>
+        <div class="card-sub">Ranked by downtime impact</div>
+        <div class="chart-wrap" style="height:340px;"><canvas id="c-fail"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Pareto Analysis</div>
+        <div class="card-sub">20% of failures causing 80% of downtime</div>
+        <div class="chart-wrap" style="height:340px;"><canvas id="c-pareto"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 6: Stacked full width -->
+    <div class="card span2" style="margin-bottom:18px;">
+      <div class="card-title">Equipment Loss Composition</div>
+      <div class="card-sub">Stacked by loss type — top 12 equipment</div>
+      <div class="chart-wrap" style="height:300px;"><canvas id="c-stacked"></canvas></div>
+    </div>
+
+    <!-- Row 7: Drill + Priority -->
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Operation → Equipment Drilldown</div>
+        <div class="card-sub">Click any operation to expand equipment</div>
+        <div id="drill"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Top 10 Improvement Priorities</div>
+        <div class="card-sub">Ranked by equipment downtime</div>
+        <ul class="prio-list" id="priority"></ul>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /dashboard -->
+
+<script src="script.js"></script>
+</body></html>

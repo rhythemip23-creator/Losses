@@ -34,6 +34,13 @@ ALL_ROWS.forEach(r => {
 });
 
 
+// Normalize near-duplicate Failure Description text (typos/case/whitespace variants merged)
+const FAIL_NORM = {"20.2 gm celebration changeover": "16 gm celebration changeover", "16 gm kitted changeover": "Changeover in 16 gm", "3D rejection not working": "3 D rejection not working", "Changeover in 9.8 gm regular": "9.8 gm regular sku changeover", "ADS tripping due to tracking": "ADS tripping due to due to DUR tracking", "First aligner not working": "Aligner-3 not working", "first aligner not working": "Aligner-3 not working", "Timeing belt broken": "BT timing belt got broken", "bar crashing FWV & high outer rejection": "Bar crushing high outer rejection", "FWV bar dropping issue": "Bar dropping issue from FWV wheel", "high bar rejection": "Bar rejection issue", "Blank piscking issue": "Blank picking issue", "FWV bar picking issue": "Blank picking issue", "Carrier homing issue": "Carrier belt homing issue", "chain pusher open": "Chain pusher block open", "Chain pusher loose": "Closing pusher loose", "Outer pusher chain loose": "Closing pusher loose", "Changeover done": "Changeover", "Chnageover": "Changeover", "Chocolae cooling issue": "Chocolate cooling issue", "Chocolate shortage issue": "Chocolate shortage", "chocolate shortage issue": "Chocolate shortage", "Closing pusher broken": "Closing  pusher broken", "Closing unit guide setting": "Closing unit guide issue", "Code printing isse": "Code printer  issue", "Cutting issue": "Pouch cutting issue", "pouch cutting issue": "Pouch cutting issue", "DU4 belt drive fault": "DU2 drive fault", "DUR Tracking issue": "Film tracking issue", "Tracking issue": "Film tracking issue", "film tracking issue": "Film tracking issue", "Discharge belt tracking issue": "Discharge belt tracking", "FT plate loose": "FT plate got loose", "Film  Breaking issue": "Film breaking issue", "Film Breaking issue": "Film breaking issue", "Film broken issue": "Film breaking issue", "Outer forming plate bend": "Forming unit plate got bend", "Glue not coming in closure": "Glue not coming in closing", "Glue not coming in forming": "Glue not coming in closing", "Gripper fault": "Robot gripper fault", "Gripper sensor fault": "Gripper network fault", "Hardware not ok": "Hardware found not ok", "High outers rejection": "High outer rejection", "High outfeed rejection": "High outer rejection", "High pouch rejection": "High outer rejection", "High rejection issu": "High outer rejection", "Outer rejection issue": "High outer rejection", "high outer rejection": "High outer rejection", "infeed Chain drive fault": "Infeed chain drive fault", "Infeed crush issue": "infeed crush issue", "bar jumping issue": "Joint bar issue", "Laminate opening issue": "Laminate tracking issue", "material  stuck at aligner": "Material stuck at aligner", "naugatine hopper empty": "Naugatine hopper emptied", "Outer forming issue": "Outer damaging issue", "Outer formation & placing issue": "Outer formation issue", "outer formation issue": "Outer formation issue", "outer jaming at closing": "Outer jaming at closing", "Outer jamming at dischage belt": "Outer jaming at discharge", "Outer pusher guide removed": "Outer pusher chain guide removed", "Outer stuck in closing": "Outer stucking in closing", "PGR  socket broken": "PGR socket broken", "PGR sockets broken": "PGR socket broken", "PGR belt jamming": "PGR belt jaming", "PM of machine": "PM of machne", "Partial hygiene": "Partial Hygiene", "Piouch cut issue": "Pouch cuttingb issue", "Pouch cut issue": "Pouch cuttingb issue", "Pouch opening issue": "Pouch joint issue", "Pouch leackage issue": "Pouch leakage issue", "Power fluctuation": "Power fluctuaion", "RBLT belt tracking issue": "RBLT belt tracking", "RBLT tracking issue": "RBLT belt tracking", "Sheet jaming": "Sheet jamming", "sheet jaming": "Sheet jamming", "short count issue": "Short count issue", "shut due to cylinder replaced": "Shut due to FT cylinder jammed", "Shut due to belt tracking issue": "Shut due to film tracking issue", "Shut due to short count issue": "Shut due to closing pusher issue", "Shut due to code shifting issue": "Shut due to code missing", "Shut due to glue issue in closing": "Shut due to glue issue", "Shut due to high rejection & joint bars": "Shut due to high rejection", "Shut due to roller jamming": "Shut due to locker jaming", "TGR  block open": "TGR block open", "TGR belt block open": "TGR block open", "TGR block broken": "TGR block open", "TGR block loose": "TGR block open", "TGR block opened": "TGR block open", "TGR guide removed": "TGR Guide removed", "TGR block dislocated": "Tgr block dislocated", "TGR cam dislocated": "Tgr block dislocated", "Top loader feeder not working": "Top loader cylinder not working", "Turning belt drive fault": "Transport belt drive fault", "Triangular belt broken": "Triangular belt PM", "Triangular belt damage": "Triangular belt PM", "Triangular belt slippage": "Triangular belt PM", "Waiting belt tracked": "Waiting belt tgracked", "Wrong socket detectyed": "Wrong socket detected"};
+ALL_ROWS.forEach(r => {
+  const d = r['Failure Description'];
+  if (d) r['Failure Description Norm'] = FAIL_NORM[d.trim()] || d.trim();
+});
+
 // ═══════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════
@@ -181,7 +188,6 @@ function renderKPI(){
     {k:'Line Downtime (min)',  v:lnDt.toLocaleString(),                       c:'c-pink'},
     {k:'Operations',           v:uniq(ROWS,'Operation').length,               c:'c-violet'},
     {k:'Equipment',            v:uniq(ROWS,'Equipment').length,               c:'c-indigo'},
-    {k:'Unique Failures',      v:uniq(ROWS,'Failure Description').length,     c:'c-violet'},
   ];
   document.getElementById('kpi-grid').innerHTML = kpis.map(k =>
     `<div class="kpi-card"><div class="kk">${k.k}</div><div class="vv ${k.c}">${k.v}</div></div>`
@@ -257,29 +263,8 @@ function renderLC(){
   },{plugins:{legend:{display:false}},scales:gridOpts});
 }
 
-function renderHeatmap(){
-  const topEq = srtd(gsum(ROWS,'Equipment','Equipment Downtime')).slice(0,12).map(x=>x[0]);
-  const lts   = uniq(ROWS,'Loss Type');
-  if(!topEq.length || !lts.length){ document.getElementById('heatmap').innerHTML='<p style="color:var(--dim);padding:20px;">No data</p>'; return; }
-  const mx = Math.max(...topEq.flatMap(eq => lts.map(lt =>
-    sumBy(ROWS.filter(r=>r.Equipment===eq&&r['Loss Type']===lt),'Equipment Downtime')
-  )));
-  const cell = (v) => {
-    const ratio = mx>0 ? v/mx : 0;
-    const bg = v===0 ? '#f7f6fc' : `rgba(${Math.round(100+140*ratio)},${Math.round(10+30*(1-ratio))},${Math.round(220-120*ratio)},${0.15+ratio*0.75})`;
-    const c = ratio>0.5 ? '#fff' : '#443d5f';
-    return `<td style="background:${bg};color:${c}">${v>0?fmt(v):''}</td>`;
-  };
-  let tbl = `<table class="hm"><tr><th>Equipment</th>${lts.map(lt=>`<th>${lt.replace(/_/g,' ')}</th>`).join('')}</tr>`;
-  topEq.forEach(eq => {
-    tbl += `<tr><td class="eq-label">${eq}</td>${lts.map(lt=>cell(sumBy(ROWS.filter(r=>r.Equipment===eq&&r['Loss Type']===lt),'Equipment Downtime'))).join('')}</tr>`;
-  });
-  tbl += '</table>';
-  document.getElementById('heatmap').innerHTML = tbl;
-}
-
 function renderFail(){
-  const data = srtd(metricData(ROWS,'Failure Description')).slice(0,15);
+  const data = srtd(metricData(ROWS,'Failure Description Norm')).slice(0,15);
   mkChart('c-fail','bar',{
     labels:data.map(x=>x[0].length>42?x[0].slice(0,40)+'…':x[0]),
     datasets:[{label:metricLabel(),data:data.map(x=>x[1]),
@@ -288,7 +273,7 @@ function renderFail(){
 }
 
 function renderPareto(){
-  const data  = srtd(metricData(ROWS,'Failure Description')).slice(0,20);
+  const data  = srtd(metricData(ROWS,'Failure Description Norm')).slice(0,20);
   const total = data.reduce((a,x)=>a+x[1],0);
   let cum=0;
   const cumPct = data.map(x=>{ cum+=x[1]; return +(cum/total*100).toFixed(1); });
@@ -369,44 +354,6 @@ function renderPriority(){
     </li>`).join('');
 }
 
-function renderOpp(){
-  const opDt   = gsum(ROWS,'Operation','Equipment Downtime');
-  const eqDt   = gsum(ROWS,'Equipment','Equipment Downtime');
-  const ltDt   = gsum(ROWS,'Loss Type','Equipment Downtime');
-  const failDt = gsum(ROWS,'Failure Description','Equipment Downtime');
-  const total  = sumBy(ROWS,'Equipment Downtime');
-  const unDt   = sumBy(ROWS.filter(r=>r['Loss Category']==='Unplanned_Loss'),'Equipment Downtime');
-  const [wOp]  = srtd(opDt)[0]  || ['—',0];
-  const [wEq,wEqV]  = srtd(eqDt)[0] || ['—',0];
-  const [wLt]  = srtd(ltDt)[0]  || ['—',0];
-  const [wFl]  = srtd(failDt)[0]|| ['—',0];
-
-  const pct = (v) => total ? (v/total*100).toFixed(1) : 0;
-
-  document.getElementById('opp').innerHTML = `
-    <div class="opp-box red">
-      <h4>⚠ Critical — Worst Operation: ${wOp}</h4>
-      <p><span class="opp-tag">PRIORITY 1</span><strong>${wOp}</strong> is the highest-loss operation, contributing <strong>${pct(opDt[wOp]||0)}%</strong> of total equipment downtime (${(opDt[wOp]||0).toLocaleString()} min). Immediate cross-functional review required.</p>
-    </div>
-    <div class="opp-box red">
-      <h4>⚠ Critical — Worst Equipment: ${wEq}</h4>
-      <p><span class="opp-tag">PRIORITY 2</span><strong>${wEq}</strong> leads all machines at <strong>${wEqV.toLocaleString()} min</strong> (${pct(wEqV)}% of total). Root cause analysis and targeted Planned Maintenance schedule recommended immediately.</p>
-    </div>
-    <div class="opp-box amber">
-      <h4>⚠ High Impact — Dominant Loss Type: ${wLt.replace(/_/g,' ')}</h4>
-      <p><span class="opp-tag">PRIORITY 3</span><strong>${wLt.replace(/_/g,' ')}</strong> is the #1 loss type at <strong>${(ltDt[wLt]||0).toLocaleString()} min</strong> (${pct(ltDt[wLt]||0)}% of downtime). Deploy RCM and AM step-up to address at root cause level.</p>
-    </div>
-    <div class="opp-box amber">
-      <h4>⚠ High Impact — Top Recurring Failure</h4>
-      <p><span class="opp-tag">PRIORITY 4</span>"<strong>${wFl}</strong>" has consumed <strong>${(failDt[wFl]||0).toLocaleString()} min</strong>. WHY-WHY analysis + Kaizen event recommended. Containment within 7 days, permanent fix within 30 days.</p>
-    </div>
-    <div class="opp-box green">
-      <h4>✓ Opportunity — Unplanned Reduction</h4>
-      <p>Unplanned losses = <strong>${unDt.toLocaleString()} min</strong> (${pct(unDt)}% of downtime). Addressing top 3 equipment failures could recover <strong>~${Math.round(unDt*0.18).toLocaleString()} min</strong> (est. 15–20% reduction) through structured AM/PM improvement plans.</p>
-    </div>
-    `;
-}
-
 function renderAll(){
   renderKPI();
   renderDonuts();
@@ -415,13 +362,11 @@ function renderAll(){
   renderEq();
   renderLT();
   renderLC();
-  renderHeatmap();
   renderFail();
   renderPareto();
   renderStacked();
   renderDrill();
   renderPriority();
-  renderOpp();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -459,44 +404,7 @@ function showUpload(){
   document.getElementById('upl-err').textContent = '';
   document.getElementById('upl-prog').textContent = '';
   document.getElementById('file-input').value = '';
-  document.getElementById('link-input').value = '';
   Object.values(CHARTS).forEach(c=>{ try{c.destroy();}catch(e){} });
-}
-
-function parseWorkbookBuffer(buffer){
-  document.getElementById('upl-prog').textContent = '⏳ Parsing…';
-  const wb   = XLSX.read(new Uint8Array(buffer),{type:'array',cellDates:true});
-  const ws   = wb.Sheets[wb.SheetNames[0]];
-  const raw  = XLSX.utils.sheet_to_json(ws,{defval:''});
-  if(!raw.length){ document.getElementById('upl-err').textContent='File is empty.'; document.getElementById('upl-prog').textContent=''; return; }
-
-  const COL = {'date':'Date','operation':'Operation','equipment':'Equipment',
-    'failure description':'Failure Description','loss category':'Loss Category',
-    'loss type':'Loss Type','equipment downtime':'Equipment Downtime','line downtime':'line downtime'};
-  const norm = raw.map(r=>{
-    const o={};
-    Object.keys(r).forEach(k=>{ o[COL[k.trim().toLowerCase()]||k.trim()]=r[k]; });
-    return o;
-  });
-
-  const req = ['Operation','Equipment','Loss Category','Loss Type','Equipment Downtime'];
-  const miss = req.filter(c=>!(c in (norm[0]||{})));
-  if(miss.length){ document.getElementById('upl-err').textContent='Missing: '+miss.join(', '); document.getElementById('upl-prog').textContent=''; return; }
-
-  document.getElementById('upl-prog').textContent = '⚙️ Processing '+raw.length+' rows…';
-  const processed = norm.map(r=>{
-    let month='';
-    if(r['Date']){ const d=r['Date'] instanceof Date?r['Date']:new Date(r['Date']); if(!isNaN(d)) month=d.toISOString().slice(0,7); }
-    return {...r,'Equipment Downtime':parseFloat(r['Equipment Downtime'])||0,'line downtime':parseFloat(r['line downtime'])||0,Month:month};
-  }).filter(r=>r['Loss Category']&&r['Operation']);
-
-  if(!processed.length){ document.getElementById('upl-err').textContent='No valid rows found.'; document.getElementById('upl-prog').textContent=''; return; }
-
-  document.getElementById('upl-prog').textContent='';
-  processed.forEach(r => { if(r['Equipment']) r['Equipment'] = normalizeEquipment(r['Equipment']); });
-  document.getElementById('upload-screen').style.display='none';
-  document.getElementById('dashboard').style.display='block';
-  bootDashboard(processed);
 }
 
 function processFile(file){
@@ -505,7 +413,41 @@ function processFile(file){
   const reader = new FileReader();
   reader.onload = function(e){
     try{
-      parseWorkbookBuffer(e.target.result);
+      document.getElementById('upl-prog').textContent = '⏳ Parsing…';
+      const wb   = XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const raw  = XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!raw.length){ document.getElementById('upl-err').textContent='File is empty.'; document.getElementById('upl-prog').textContent=''; return; }
+
+      const COL = {'date':'Date','operation':'Operation','equipment':'Equipment',
+        'failure description':'Failure Description','loss category':'Loss Category',
+        'loss type':'Loss Type','equipment downtime':'Equipment Downtime','line downtime':'line downtime'};
+      const norm = raw.map(r=>{
+        const o={};
+        Object.keys(r).forEach(k=>{ o[COL[k.trim().toLowerCase()]||k.trim()]=r[k]; });
+        return o;
+      });
+
+      const req = ['Operation','Equipment','Loss Category','Loss Type','Equipment Downtime'];
+      const miss = req.filter(c=>!(c in (norm[0]||{})));
+      if(miss.length){ document.getElementById('upl-err').textContent='Missing: '+miss.join(', '); document.getElementById('upl-prog').textContent=''; return; }
+
+      document.getElementById('upl-prog').textContent = '⚙️ Processing '+raw.length+' rows…';
+      const processed = norm.map(r=>{
+        let month='';
+        if(r['Date']){ const d=r['Date'] instanceof Date?r['Date']:new Date(r['Date']); if(!isNaN(d)) month=d.toISOString().slice(0,7); }
+        return {...r,'Equipment Downtime':parseFloat(r['Equipment Downtime'])||0,'line downtime':parseFloat(r['line downtime'])||0,Month:month};
+      }).filter(r=>r['Loss Category']&&r['Operation']);
+
+      if(!processed.length){ document.getElementById('upl-err').textContent='No valid rows found.'; document.getElementById('upl-prog').textContent=''; return; }
+
+      document.getElementById('upl-prog').textContent='';
+      // Normalise equipment names in uploaded data
+      processed.forEach(r => { if(r['Equipment']) r['Equipment'] = normalizeEquipment(r['Equipment']); });
+      document.getElementById('upload-screen').style.display='none';
+      document.getElementById('dashboard').style.display='block';
+      bootDashboard(processed);
+
     }catch(err){
       document.getElementById('upl-err').textContent='Error: '+err.message;
       document.getElementById('upl-prog').textContent='';
@@ -515,55 +457,9 @@ function processFile(file){
   reader.readAsArrayBuffer(file);
 }
 
-// ── Convert a OneDrive/SharePoint share link into a direct-download link ──
-function toDirectDownloadLink(url){
-  url = url.trim();
-  // 1drv.ms short links and onedrive.live.com share links: force download param
-  if(/1drv\.ms/i.test(url) || /onedrive\.live\.com/i.test(url)){
-    if(/[?&]download=1/i.test(url)) return url;
-    return url + (url.includes('?') ? '&' : '?') + 'download=1';
-  }
-  // SharePoint links: append download=1 as well
-  if(/sharepoint\.com/i.test(url)){
-    if(/[?&]download=1/i.test(url)) return url;
-    return url + (url.includes('?') ? '&' : '?') + 'download=1';
-  }
-  // Google Drive share links → direct download form
-  const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-  if(gd) return `https://drive.google.com/uc?export=download&id=${gd[1]}`;
-  return url;
-}
-
-async function processLink(){
-  const input = document.getElementById('link-input');
-  const rawUrl = input.value.trim();
-  document.getElementById('upl-err').textContent = '';
-  document.getElementById('upl-prog').textContent = '';
-  if(!rawUrl){ document.getElementById('upl-err').textContent = 'Paste a link first.'; return; }
-
-  const url = toDirectDownloadLink(rawUrl);
-  document.getElementById('upl-prog').textContent = '⏳ Fetching file from link…';
-  const btn = document.getElementById('link-btn');
-  btn.disabled = true;
-  try{
-    const res = await fetch(url, { mode: 'cors' });
-    if(!res.ok) throw new Error('Server responded with status ' + res.status);
-    const buffer = await res.arrayBuffer();
-    parseWorkbookBuffer(buffer);
-  }catch(err){
-    document.getElementById('upl-prog').textContent = '';
-    document.getElementById('upl-err').textContent =
-      'Could not load from link. Make sure sharing is set to "Anyone with the link" and the link points directly to the file. You can also just download the file and use "Browse File" instead.';
-    console.error(err);
-  }finally{
-    btn.disabled = false;
-  }
-}
-
 const dz = document.getElementById('drop-zone');
 dz.addEventListener('dragover',  e=>{ e.preventDefault(); dz.classList.add('drag'); });
 dz.addEventListener('dragleave', ()=> dz.classList.remove('drag'));
 dz.addEventListener('drop',      e=>{ e.preventDefault(); dz.classList.remove('drag'); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
 document.getElementById('file-input').addEventListener('change', e=>{ if(e.target.files[0]) processFile(e.target.files[0]); });
-document.getElementById('link-input').addEventListener('keydown', e=>{ if(e.key === 'Enter') processLink(); });
 
