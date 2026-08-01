@@ -69,36 +69,16 @@
     <!-- KPIs -->
     <div class="kpi-grid" id="kpi-grid"></div>
 
-    <!-- Row 1: Donuts + Monthly -->
-    <div class="grid2">
-      <div class="card">
-        <div class="card-title">Planned vs Unplanned Loss</div>
-        <div class="card-sub">Event count &amp; downtime split</div>
-        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
-          <div style="text-align:center;">
-            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">Events</div>
-            <div class="chart-wrap" style="width:140px;height:140px;"><canvas id="c-donut-ev"></canvas></div>
-          </div>
-          <div style="text-align:center;">
-            <div style="font-size:11px;color:var(--dim);margin-bottom:4px;">Downtime</div>
-            <div class="chart-wrap" style="width:140px;height:140px;"><canvas id="c-donut-dt"></canvas></div>
-          </div>
-          <div style="font-size:12px;color:var(--dim);line-height:2;">
-            <div><span style="color:var(--green);">■</span> Planned</div>
-            <div><span style="color:var(--red);">■</span> Unplanned</div>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">Monthly Loss Trend</div>
-        <div class="card-sub">Planned vs Unplanned by month</div>
-        <div class="chart-wrap" style="height:180px;"><canvas id="c-monthly"></canvas></div>
-      </div>
+    <!-- Row 1: Monthly Trend -->
+    <div class="card span2" id="row-donut-monthly" style="margin-bottom:18px;">
+      <div class="card-title">Monthly Loss Trend</div>
+      <div class="card-sub">Planned vs Unplanned by month</div>
+      <div class="chart-wrap" style="height:180px;"><canvas id="c-monthly"></canvas></div>
     </div>
 
     <!-- Row 2: Operation + Machine -->
-    <div class="grid2">
-      <div class="card">
+    <div class="grid2" id="row-op-eq">
+      <div class="card" id="card-op">
         <div class="card-title">Operation-wise Loss</div>
         <div class="card-sub" id="sub-op">Ranked by equipment downtime</div>
         <div class="chart-wrap" style="height:280px;"><canvas id="c-op"></canvas></div>
@@ -110,18 +90,11 @@
       </div>
     </div>
 
-    <!-- Row 3: Loss Type + Loss Category -->
-    <div class="grid2">
-      <div class="card">
-        <div class="card-title">Loss Type Analysis</div>
-        <div class="card-sub">Downtime by loss type</div>
-        <div class="chart-wrap" style="height:240px;"><canvas id="c-lt"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Loss Category Analysis</div>
-        <div class="card-sub">Planned vs Unplanned total</div>
-        <div class="chart-wrap" style="height:240px;"><canvas id="c-lc"></canvas></div>
-      </div>
+    <!-- Row 3: Loss Type -->
+    <div class="card span2" style="margin-bottom:18px;">
+      <div class="card-title">Loss Type Analysis</div>
+      <div class="card-sub">Downtime by loss type</div>
+      <div class="chart-wrap" style="height:240px;"><canvas id="c-lt"></canvas></div>
     </div>
 
     <!-- Row 5: Top Failures + Pareto -->
@@ -145,18 +118,11 @@
       <div class="chart-wrap" style="height:300px;"><canvas id="c-stacked"></canvas></div>
     </div>
 
-    <!-- Row 7: Drill + Priority -->
-    <div class="grid2">
-      <div class="card">
-        <div class="card-title">Operation → Equipment Drilldown</div>
-        <div class="card-sub">Click any operation to expand equipment</div>
-        <div id="drill"></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Top 10 Improvement Priorities</div>
-        <div class="card-sub">Ranked by equipment downtime</div>
-        <ul class="prio-list" id="priority"></ul>
-      </div>
+    <!-- Row 7: Priority -->
+    <div class="card span2" style="margin-bottom:18px;">
+      <div class="card-title">Top 10 Improvement Priorities</div>
+      <div class="card-sub">Ranked by equipment downtime</div>
+      <ul class="prio-list" id="priority"></ul>
     </div>
 
   </div><!-- /main -->
