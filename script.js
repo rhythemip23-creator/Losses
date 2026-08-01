@@ -194,21 +194,12 @@ function renderKPI(){
   ).join('');
 }
 
-function renderDonuts(){
-  const pl = ROWS.filter(r => r['Loss Category']==='Planned_Loss');
-  const un = ROWS.filter(r => r['Loss Category']==='Unplanned_Loss');
-  const base = {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}};
-  mkChart('c-donut-ev','doughnut',{
-    labels:['Planned','Unplanned'],
-    datasets:[{data:[pl.length,un.length],backgroundColor:['#34d399','#f87171'],borderWidth:0}]
-  }, base);
-  mkChart('c-donut-dt','doughnut',{
-    labels:['Planned','Unplanned'],
-    datasets:[{data:[sumBy(pl,'Equipment Downtime'),sumBy(un,'Equipment Downtime')],backgroundColor:['#34d399','#f87171'],borderWidth:0}]
-  }, base);
-}
-
 function renderMonthly(){
+  const monthFilter = document.getElementById('f-month').value;
+  const card = document.getElementById('row-donut-monthly');
+  if(monthFilter){ card.style.display='none'; return; }
+  card.style.display='';
+
   const months = uniq(ROWS,'Month');
   const isDT = METRIC==='downtime';
   const get = (arr) => isDT ? sumBy(arr,'Equipment Downtime') : arr.length;
@@ -226,6 +217,13 @@ function renderMonthly(){
 }
 
 function renderOp(){
+  const eqFilter = document.getElementById('f-eq').value;
+  const opFilter = document.getElementById('f-op').value;
+  const card = document.getElementById('card-op');
+  const row  = document.getElementById('row-op-eq');
+  if(eqFilter || opFilter){ card.style.display='none'; row.classList.add('single'); return; }
+  card.style.display=''; row.classList.remove('single');
+
   const data = srtd(metricData(ROWS,'Operation')).slice(0,12);
   document.getElementById('sub-op').textContent = 'Ranked by ' + metricLabel();
   mkChart('c-op','bar',{
@@ -252,15 +250,6 @@ function renderLT(){
     datasets:[{label:metricLabel(),data:data.map(x=>x[1]),
       backgroundColor:data.map(x=>TYPE_COL[x[0]]||'#8b5cf6'),borderRadius:4,borderSkipped:false}]
   },{indexAxis:'y',plugins:{legend:{display:false}},scales:gridOptsH});
-}
-
-function renderLC(){
-  const data = srtd(metricData(ROWS,'Loss Category'));
-  mkChart('c-lc','bar',{
-    labels:data.map(x=>x[0].replace(/_/g,' ')),
-    datasets:[{label:metricLabel(),data:data.map(x=>x[1]),
-      backgroundColor:['#f87171','#34d399'],borderRadius:6}]
-  },{plugins:{legend:{display:false}},scales:gridOpts});
 }
 
 function renderFail(){
@@ -312,37 +301,6 @@ function renderStacked(){
   });
 }
 
-function renderDrill(){
-  const opData = srtd(METRIC==='downtime'
-    ? gsum(ROWS,'Operation','Equipment Downtime')
-    : gcount(ROWS,'Operation')).slice(0,12);
-  const maxVal = opData[0]?.[1] || 1;
-  const unit = METRIC==='downtime' ? ' min' : ' losses';
-  let html = '';
-  opData.forEach(([op,val]) => {
-    const eqRaw = ROWS.filter(r=>r.Operation===op);
-    const eqData = srtd(METRIC==='downtime'
-      ? gsum(eqRaw,'Equipment','Equipment Downtime')
-      : gcount(eqRaw,'Equipment')).slice(0,6);
-    const pct = (val/maxVal*100).toFixed(0);
-    html += `<div class="drill-op">
-      <div class="drill-op-row" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
-        <span class="drill-op-name">${op}</span>
-        <div class="drill-bar-wrap"><div class="drill-bar-fill" style="width:${pct}%"></div></div>
-        <span class="drill-val">${val.toLocaleString()}${unit}</span>
-      </div>
-      <div class="drill-children">
-        ${eqData.map(([eq,v])=>`<div class="drill-eq-row">
-          <div class="drill-eq-dot"></div>
-          <span class="drill-eq-name">${eq}</span>
-          <span class="drill-eq-val">${v.toLocaleString()}${unit}</span>
-        </div>`).join('')}
-      </div>
-    </div>`;
-  });
-  document.getElementById('drill').innerHTML = html || '<p style="color:var(--dim)">No data</p>';
-}
-
 function renderPriority(){
   const data = srtd(metricData(ROWS,'Equipment')).slice(0,10);
   const unit = METRIC==='downtime' ? ' min' : ' losses';
@@ -356,16 +314,13 @@ function renderPriority(){
 
 function renderAll(){
   renderKPI();
-  renderDonuts();
   renderMonthly();
   renderOp();
   renderEq();
   renderLT();
-  renderLC();
   renderFail();
   renderPareto();
   renderStacked();
-  renderDrill();
   renderPriority();
 }
 
@@ -373,6 +328,7 @@ function renderAll(){
 // BOOT
 // ═══════════════════════════════════════════════════════════
 function bootDashboard(rows){
+  rows = rows.filter(r => (r['Equipment']||'').trim().toLowerCase() !== 'full line');
   buildLCMap(rows);
   initFilters(rows);
   ROWS = [...rows];
