@@ -360,6 +360,7 @@ function showUpload(){
   document.getElementById('upl-err').textContent = '';
   document.getElementById('upl-prog').textContent = '';
   document.getElementById('file-input').value = '';
+  document.getElementById('onedrive-link').value = '';
   Object.values(CHARTS).forEach(c=>{ try{c.destroy();}catch(e){} });
 }
 
@@ -367,51 +368,94 @@ function processFile(file){
   document.getElementById('upl-err').textContent = '';
   document.getElementById('upl-prog').textContent = '⏳ Reading…';
   const reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      document.getElementById('upl-prog').textContent = '⏳ Parsing…';
-      const wb   = XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const raw  = XLSX.utils.sheet_to_json(ws,{defval:''});
-      if(!raw.length){ document.getElementById('upl-err').textContent='File is empty.'; document.getElementById('upl-prog').textContent=''; return; }
-
-      const COL = {'date':'Date','operation':'Operation','equipment':'Equipment',
-        'failure description':'Failure Description','loss category':'Loss Category',
-        'loss type':'Loss Type','equipment downtime':'Equipment Downtime','line downtime':'line downtime'};
-      const norm = raw.map(r=>{
-        const o={};
-        Object.keys(r).forEach(k=>{ o[COL[k.trim().toLowerCase()]||k.trim()]=r[k]; });
-        return o;
-      });
-
-      const req = ['Operation','Equipment','Loss Category','Loss Type','Equipment Downtime'];
-      const miss = req.filter(c=>!(c in (norm[0]||{})));
-      if(miss.length){ document.getElementById('upl-err').textContent='Missing: '+miss.join(', '); document.getElementById('upl-prog').textContent=''; return; }
-
-      document.getElementById('upl-prog').textContent = '⚙️ Processing '+raw.length+' rows…';
-      const processed = norm.map(r=>{
-        let month='';
-        if(r['Date']){ const d=r['Date'] instanceof Date?r['Date']:new Date(r['Date']); if(!isNaN(d)) month=d.toISOString().slice(0,7); }
-        return {...r,'Equipment Downtime':parseFloat(r['Equipment Downtime'])||0,'line downtime':parseFloat(r['line downtime'])||0,Month:month};
-      }).filter(r=>r['Loss Category']&&r['Operation']);
-
-      if(!processed.length){ document.getElementById('upl-err').textContent='No valid rows found.'; document.getElementById('upl-prog').textContent=''; return; }
-
-      document.getElementById('upl-prog').textContent='';
-      // Normalise equipment names in uploaded data
-      processed.forEach(r => { if(r['Equipment']) r['Equipment'] = normalizeEquipment(r['Equipment']); });
-      document.getElementById('upload-screen').style.display='none';
-      document.getElementById('dashboard').style.display='block';
-      bootDashboard(processed);
-
-    }catch(err){
-      document.getElementById('upl-err').textContent='Error: '+err.message;
-      document.getElementById('upl-prog').textContent='';
-      console.error(err);
-    }
-  };
+  reader.onload = function(e){ parseWorkbookBuffer(e.target.result); };
   reader.readAsArrayBuffer(file);
 }
+
+function parseWorkbookBuffer(buffer){
+  try{
+    document.getElementById('upl-prog').textContent = '⏳ Parsing…';
+    const wb   = XLSX.read(new Uint8Array(buffer),{type:'array',cellDates:true});
+    const ws   = wb.Sheets[wb.SheetNames[0]];
+    const raw  = XLSX.utils.sheet_to_json(ws,{defval:''});
+    if(!raw.length){ document.getElementById('upl-err').textContent='File is empty.'; document.getElementById('upl-prog').textContent=''; return; }
+
+    const COL = {'date':'Date','operation':'Operation','equipment':'Equipment',
+      'failure description':'Failure Description','loss category':'Loss Category',
+      'loss type':'Loss Type','equipment downtime':'Equipment Downtime','line downtime':'line downtime'};
+    const norm = raw.map(r=>{
+      const o={};
+      Object.keys(r).forEach(k=>{ o[COL[k.trim().toLowerCase()]||k.trim()]=r[k]; });
+      return o;
+    });
+
+    const req = ['Operation','Equipment','Loss Category','Loss Type','Equipment Downtime'];
+    const miss = req.filter(c=>!(c in (norm[0]||{})));
+    if(miss.length){ document.getElementById('upl-err').textContent='Missing: '+miss.join(', '); document.getElementById('upl-prog').textContent=''; return; }
+
+    document.getElementById('upl-prog').textContent = '⚙️ Processing '+raw.length+' rows…';
+    const processed = norm.map(r=>{
+      let month='';
+      if(r['Date']){ const d=r['Date'] instanceof Date?r['Date']:new Date(r['Date']); if(!isNaN(d)) month=d.toISOString().slice(0,7); }
+      return {...r,'Equipment Downtime':parseFloat(r['Equipment Downtime'])||0,'line downtime':parseFloat(r['line downtime'])||0,Month:month};
+    }).filter(r=>r['Loss Category']&&r['Operation']);
+
+    if(!processed.length){ document.getElementById('upl-err').textContent='No valid rows found.'; document.getElementById('upl-prog').textContent=''; return; }
+
+    document.getElementById('upl-prog').textContent='';
+    // Normalise equipment names in uploaded data
+    processed.forEach(r => { if(r['Equipment']) r['Equipment'] = normalizeEquipment(r['Equipment']); });
+    document.getElementById('upload-screen').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    bootDashboard(processed);
+
+  }catch(err){
+    document.getElementById('upl-err').textContent='Error: '+err.message;
+    document.getElementById('upl-prog').textContent='';
+    console.error(err);
+  }
+}
+
+// Converts a OneDrive/SharePoint share link into a direct-download URL.
+function toOneDriveDirectLink(url){
+  url = url.trim();
+  if(/1drv\.ms|onedrive\.live\.com/i.test(url)){
+    // Personal OneDrive share links: forcing download via query param
+    if(/[?&]download=1/i.test(url)) return url;
+    return url + (url.includes('?') ? '&' : '?') + 'download=1';
+  }
+  if(/sharepoint\.com/i.test(url)){
+    // SharePoint/OneDrive for Business share links
+    if(/[?&]download=1/i.test(url)) return url;
+    return url + (url.includes('?') ? '&' : '?') + 'download=1';
+  }
+  return url; // fall back to as-is (e.g. already a direct file URL)
+}
+
+function loadFromOneDrive(){
+  const input = document.getElementById('onedrive-link');
+  const url = input.value.trim();
+  document.getElementById('upl-err').textContent = '';
+  if(!url){ document.getElementById('upl-err').textContent = 'Paste a OneDrive link first.'; return; }
+
+  document.getElementById('upl-prog').textContent = '⏳ Fetching from OneDrive…';
+  const directUrl = toOneDriveDirectLink(url);
+
+  fetch(directUrl)
+    .then(res => {
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return res.arrayBuffer();
+    })
+    .then(buffer => parseWorkbookBuffer(buffer))
+    .catch(err => {
+      document.getElementById('upl-prog').textContent = '';
+      document.getElementById('upl-err').textContent =
+        'Could not load link (it may need to be a public "Anyone with the link" share, or the host blocks direct access). ' + err.message;
+      console.error(err);
+    });
+}
+
+
 
 const dz = document.getElementById('drop-zone');
 dz.addEventListener('dragover',  e=>{ e.preventDefault(); dz.classList.add('drag'); });
