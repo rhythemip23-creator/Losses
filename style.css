@@ -33,6 +33,14 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-se
   box-shadow:0 0 18px rgba(109,40,217,.5);transition:.2s;}
 .drop-btn:hover{transform:translateY(-2px);box-shadow:0 0 28px rgba(109,40,217,.7);}
 #file-input{display:none;}
+.or-divider{display:flex;align-items:center;gap:10px;width:min(480px,90vw);margin:16px 0 2px;}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.or-divider span{font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;}
+.link-row{display:flex;gap:8px;width:min(480px,90vw);}
+.link-row input{flex:1;padding:10px 14px;border:1.5px solid #c4b5fd;border-radius:10px;
+  font-size:13px;color:var(--text);background:#fff;outline:none;}
+.link-row input:focus{border-color:var(--violet);}
+.link-row .drop-btn{padding:10px 18px;font-size:13px;white-space:nowrap;}
 .upl-msg{font-size:13px;font-weight:600;margin-top:8px;min-height:20px;text-align:center;}
 .upl-err{color:var(--red);}
 .upl-prog{color:var(--purple);}
