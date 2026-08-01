@@ -24,6 +24,11 @@
     <button class="drop-btn" onclick="document.getElementById('file-input').click()">📂 Browse File</button>
     <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
   </div>
+  <div class="or-divider"><span>OR</span></div>
+  <div class="link-row">
+    <input type="text" id="onedrive-link" placeholder="Paste OneDrive share link…">
+    <button class="drop-btn" id="onedrive-load-btn" onclick="loadFromOneDrive()">🔗 Load Link</button>
+  </div>
   <div id="upl-err" class="upl-msg upl-err"></div>
   <div id="upl-prog" class="upl-msg upl-prog"></div>
   <div class="col-hint">
@@ -46,7 +51,7 @@
       <span class="title-text">5 Star</span>
       <span class="title-sub">· CEO Loss Analytics Dashboard</span>
     </h1>
-    <button id="new-file-btn" onclick="showUpload()">⬆ Upload New File</button>
+    <button id="new-file-btn" onclick="showUpload()">🔄 Live Sync</button>
   </div>
 
   <div id="filterbar">
