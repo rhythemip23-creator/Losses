@@ -46,6 +46,7 @@ ALL_ROWS.forEach(r => {
 // ═══════════════════════════════════════════════════════════
 let ROWS = [];        // current filtered rows
 let METRIC = 'downtime'; // 'downtime' | 'events'
+let TREND_VIEW = 'monthly'; // 'monthly' | 'daily'
 const CHARTS = {};
 
 // ═══════════════════════════════════════════════════════════
@@ -87,24 +88,12 @@ const gridOpts = {
 };
 const gridOptsH = {
   x:{ticks:{color:'#655d85'},grid:{color:'#ece9f7'}},
-  y:{ticks:{color:'#221f36',font:{size:11}},grid:{color:'#ece9f7'}}
+  y:{ticks:{color:'#221f36',font:{size:11},autoSkip:false},grid:{color:'#ece9f7'}}
 };
 
 // ═══════════════════════════════════════════════════════════
 // FILTERS
 // ═══════════════════════════════════════════════════════════
-const LC_LT_MAP = {};  // Loss Category → Set of Loss Types
-
-function buildLCMap(rows){
-  Object.keys(LC_LT_MAP).forEach(k => delete LC_LT_MAP[k]);
-  rows.forEach(r => {
-    const lc = r['Loss Category'], lt = r['Loss Type'];
-    if(!lc || !lt) return;
-    if(!LC_LT_MAP[lc]) LC_LT_MAP[lc] = new Set();
-    LC_LT_MAP[lc].add(lt);
-  });
-}
-
 function fillSelect(id, values, curVal){
   const s = document.getElementById(id);
   const prev = curVal !== undefined ? curVal : s.value;
@@ -122,24 +111,14 @@ function applyFilters(){
   const op = document.getElementById('f-op').value;
   const eq = document.getElementById('f-eq').value;
   const lc = document.getElementById('f-lc').value;
-  const lt = document.getElementById('f-lt').value;
 
   ROWS = ALL_ROWS.filter(r =>
     (!m  || r['Month']         === m)  &&
     (!op || r['Operation']     === op) &&
     (!eq || r['Equipment']     === eq) &&
-    (!lc || r['Loss Category'] === lc) &&
-    (!lt || r['Loss Type']     === lt)
+    (!lc || r['Loss Category'] === lc)
   );
   renderAll();
-}
-
-function onLCChange(){
-  const lc = document.getElementById('f-lc').value;
-  const types = lc && LC_LT_MAP[lc] ? [...LC_LT_MAP[lc]].sort() : uniq(ALL_ROWS,'Loss Type');
-  fillSelect('f-lt', types);
-  document.getElementById('f-lt').value = '';
-  applyFilters();
 }
 
 function initFilters(rows){
@@ -147,17 +126,15 @@ function initFilters(rows){
   fillSelect('f-op',    uniq(rows,'Operation'));
   fillSelect('f-eq',    uniq(rows,'Equipment'));
   fillSelect('f-lc',    uniq(rows,'Loss Category'));
-  fillSelect('f-lt',    uniq(rows,'Loss Type'));
 
   // Reset values
-  ['f-month','f-op','f-eq','f-lc','f-lt'].forEach(id => document.getElementById(id).value = '');
+  ['f-month','f-op','f-eq','f-lc'].forEach(id => document.getElementById(id).value = '');
 
   // Wire events (use onchange to avoid duplicates)
   document.getElementById('f-month').onchange = applyFilters;
   document.getElementById('f-op').onchange    = applyFilters;
   document.getElementById('f-eq').onchange    = applyFilters;
-  document.getElementById('f-lc').onchange    = onLCChange;
-  document.getElementById('f-lt').onchange    = applyFilters;
+  document.getElementById('f-lc').onchange    = applyFilters;
 }
 
 function setMetric(mode){
@@ -167,6 +144,11 @@ function setMetric(mode){
   document.getElementById('metric-hint').textContent =
     mode==='downtime' ? 'Equipment Downtime (minutes)' : 'Number of Loss Events';
   renderAll();
+}
+
+function setTrendView(view){
+  TREND_VIEW = view;
+  renderMonthly();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -197,21 +179,31 @@ function renderKPI(){
 function renderMonthly(){
   const monthFilter = document.getElementById('f-month').value;
   const card = document.getElementById('row-donut-monthly');
-  if(monthFilter){ card.style.display='none'; return; }
+  const isDaily = TREND_VIEW==='daily';
+
+  // Monthly trend across many months isn't meaningful once a single month is
+  // selected; daily view still works fine (it just narrows to that month's days).
+  if(!isDaily && monthFilter){ card.style.display='none'; return; }
   card.style.display='';
 
-  const months = uniq(ROWS,'Month');
   const isDT = METRIC==='downtime';
   const get = (arr) => isDT ? sumBy(arr,'Equipment Downtime') : arr.length;
-  const planArr = months.map(m => get(ROWS.filter(r=>r.Month===m&&r['Loss Category']==='Planned_Loss')));
-  const unArr   = months.map(m => get(ROWS.filter(r=>r.Month===m&&r['Loss Category']==='Unplanned_Loss')));
-  const totArr  = months.map((_,i) => planArr[i]+unArr[i]);
+
+  const labels = isDaily ? uniq(ROWS,'Date').sort() : uniq(ROWS,'Month');
+  const key = isDaily ? 'Date' : 'Month';
+  const planArr = labels.map(l => get(ROWS.filter(r=>r[key]===l&&r['Loss Category']==='Planned_Loss')));
+  const unArr   = labels.map(l => get(ROWS.filter(r=>r[key]===l&&r['Loss Category']==='Unplanned_Loss')));
+  const totArr  = labels.map((_,i) => planArr[i]+unArr[i]);
+
+  document.getElementById('sub-monthly').textContent =
+    isDaily ? 'Planned vs Unplanned by day' : 'Planned vs Unplanned by month';
+
   mkChart('c-monthly','line',{
-    labels:months,
+    labels,
     datasets:[
-      {label:'Total',    data:totArr, borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,.1)',fill:true,tension:.3,pointRadius:4},
-      {label:'Planned',  data:planArr,borderColor:'#34d399',borderDash:[5,3],tension:.3,pointRadius:3},
-      {label:'Unplanned',data:unArr,  borderColor:'#f87171',borderDash:[5,3],tension:.3,pointRadius:3},
+      {label:'Total',    data:totArr, borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,.1)',fill:true,tension:.3,pointRadius:isDaily?2:4},
+      {label:'Planned',  data:planArr,borderColor:'#34d399',borderDash:[5,3],tension:.3,pointRadius:isDaily?1:3},
+      {label:'Unplanned',data:unArr,  borderColor:'#f87171',borderDash:[5,3],tension:.3,pointRadius:isDaily?1:3},
     ]
   },{plugins:{legend:{labels:{color:'#655d85',font:{size:11}}}},scales:gridOpts});
 }
@@ -328,8 +320,10 @@ function renderAll(){
 // BOOT
 // ═══════════════════════════════════════════════════════════
 function bootDashboard(rows){
-  rows = rows.filter(r => (r['Equipment']||'').trim().toLowerCase() !== 'full line');
-  buildLCMap(rows);
+  rows = rows.filter(r => {
+    const eq = (r['Equipment']||'').trim().toLowerCase();
+    return eq !== 'full line' && eq !== 'hcm';
+  });
   initFilters(rows);
   ROWS = [...rows];
   METRIC = 'downtime';
