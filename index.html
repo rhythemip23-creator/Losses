@@ -60,7 +60,6 @@
     <select id="f-op"><option value="">All Operations</option></select>
     <select id="f-eq"><option value="">All Equipment</option></select>
     <select id="f-lc"><option value="">All Loss Categories</option></select>
-    <select id="f-lt"><option value="">All Loss Types</option></select>
     <div class="fbar-divider"></div>
     <label>View by:</label>
     <div class="toggle-wrap">
@@ -76,8 +75,22 @@
 
     <!-- Row 1: Monthly Trend -->
     <div class="card span2" id="row-donut-monthly" style="margin-bottom:18px;">
-      <div class="card-title">Monthly Loss Trend</div>
-      <div class="card-sub">Planned vs Unplanned by month</div>
+      <div class="trend-head">
+        <div>
+          <div class="card-title">Loss Trend</div>
+          <div class="card-sub" id="sub-monthly">Planned vs Unplanned by month</div>
+        </div>
+        <div class="toggle-wrap trend-toggle">
+          <label class="radio-btn">
+            <input type="radio" name="trend-view" id="trend-monthly" value="monthly" checked onchange="setTrendView('monthly')">
+            <span>Monthly</span>
+          </label>
+          <label class="radio-btn">
+            <input type="radio" name="trend-view" id="trend-daily" value="daily" onchange="setTrendView('daily')">
+            <span>Daily</span>
+          </label>
+        </div>
+      </div>
       <div class="chart-wrap" style="height:180px;"><canvas id="c-monthly"></canvas></div>
     </div>
 
@@ -91,7 +104,7 @@
       <div class="card">
         <div class="card-title">Machine-wise Loss</div>
         <div class="card-sub" id="sub-eq">Top 15 equipment by downtime</div>
-        <div class="chart-wrap" style="height:280px;"><canvas id="c-eq"></canvas></div>
+        <div class="chart-wrap" style="height:340px;"><canvas id="c-eq"></canvas></div>
       </div>
     </div>
 
