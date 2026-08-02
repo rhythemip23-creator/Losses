@@ -117,6 +117,16 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-se
 .card-sub{font-size:11px;color:#6b6490;margin-bottom:14px;}
 .chart-wrap{position:relative;}
 
+/* ── TREND HEAD / RADIO TOGGLE ── */
+.trend-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:2px;}
+.trend-toggle{flex-shrink:0;}
+.radio-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;font-weight:600;
+  color:var(--dim);cursor:pointer;transition:.2s;}
+.radio-btn input[type="radio"]{accent-color:#fff;width:13px;height:13px;cursor:pointer;}
+.radio-btn:has(input:checked){background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff;border-radius:8px;}
+.radio-btn:has(input:checked) input[type="radio"]{accent-color:#fff;}
+.radio-btn:not(:has(input:checked)):hover{background:rgba(109,40,217,.15);color:var(--lavender);}
+
 /* ── DRILL ── */
 .drill-op{border-bottom:1px solid var(--border);padding:8px 0;}
 .drill-op-row{display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0;}
