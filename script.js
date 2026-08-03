@@ -45,6 +45,7 @@ ALL_ROWS.forEach(r => {
 // STATE
 // ═══════════════════════════════════════════════════════════
 let ROWS = [];        // current filtered rows
+let CURRENT_DATA = ALL_ROWS; // the full dataset currently loaded (default or uploaded)
 let METRIC = 'downtime'; // 'downtime' | 'events'
 let TREND_VIEW = 'monthly'; // 'monthly' | 'daily'
 const CHARTS = {};
@@ -112,7 +113,7 @@ function applyFilters(){
   const eq = document.getElementById('f-eq').value;
   const lc = document.getElementById('f-lc').value;
 
-  ROWS = ALL_ROWS.filter(r =>
+  ROWS = CURRENT_DATA.filter(r =>
     (!m  || r['Month']         === m)  &&
     (!op || r['Operation']     === op) &&
     (!eq || r['Equipment']     === eq) &&
@@ -324,6 +325,7 @@ function bootDashboard(rows){
     const eq = (r['Equipment']||'').trim().toLowerCase();
     return eq !== 'full line' && eq !== 'hcm';
   });
+  CURRENT_DATA = rows;
   initFilters(rows);
   ROWS = [...rows];
   METRIC = 'downtime';
@@ -369,23 +371,38 @@ function processFile(file){
 function parseWorkbookBuffer(buffer){
   try{
     document.getElementById('upl-prog').textContent = '⏳ Parsing…';
-    const wb   = XLSX.read(new Uint8Array(buffer),{type:'array',cellDates:true});
-    const ws   = wb.Sheets[wb.SheetNames[0]];
-    const raw  = XLSX.utils.sheet_to_json(ws,{defval:''});
-    if(!raw.length){ document.getElementById('upl-err').textContent='File is empty.'; document.getElementById('upl-prog').textContent=''; return; }
+    const wb  = XLSX.read(new Uint8Array(buffer),{type:'array',cellDates:true});
 
     const COL = {'date':'Date','operation':'Operation','equipment':'Equipment',
       'failure description':'Failure Description','loss category':'Loss Category',
       'loss type':'Loss Type','equipment downtime':'Equipment Downtime','line downtime':'line downtime'};
-    const norm = raw.map(r=>{
-      const o={};
-      Object.keys(r).forEach(k=>{ o[COL[k.trim().toLowerCase()]||k.trim()]=r[k]; });
-      return o;
-    });
-
     const req = ['Operation','Equipment','Loss Category','Loss Type','Equipment Downtime'];
-    const miss = req.filter(c=>!(c in (norm[0]||{})));
-    if(miss.length){ document.getElementById('upl-err').textContent='Missing: '+miss.join(', '); document.getElementById('upl-prog').textContent=''; return; }
+
+    // Scan every sheet in the workbook and use the first one that actually
+    // contains the columns we need — a workbook can have many helper/lookup
+    // sheets before the real data sheet, so we can't just assume sheet #1.
+    let raw = null, norm = null, missBest = req, sheetUsed = null;
+    for(const name of wb.SheetNames){
+      const ws  = wb.Sheets[name];
+      const rws = XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!rws.length) continue;
+      const nrm = rws.map(r=>{
+        const o={};
+        Object.keys(r).forEach(k=>{ o[COL[k.trim().toLowerCase()]||k.trim()]=r[k]; });
+        return o;
+      });
+      const miss = req.filter(c=>!(c in (nrm[0]||{})));
+      if(miss.length < missBest.length){ missBest = miss; }
+      if(!miss.length){ raw = rws; norm = nrm; sheetUsed = name; break; }
+    }
+
+    if(!norm){
+      document.getElementById('upl-err').textContent =
+        'Missing: '+missBest.join(', ')+' (checked '+wb.SheetNames.length+' sheet(s): '+wb.SheetNames.join(', ')+')';
+      document.getElementById('upl-prog').textContent='';
+      return;
+    }
+    if(!raw.length){ document.getElementById('upl-err').textContent='File is empty.'; document.getElementById('upl-prog').textContent=''; return; }
 
     document.getElementById('upl-prog').textContent = '⚙️ Processing '+raw.length+' rows…';
     const processed = norm.map(r=>{
@@ -399,6 +416,12 @@ function parseWorkbookBuffer(buffer){
     document.getElementById('upl-prog').textContent='';
     // Normalise equipment names in uploaded data
     processed.forEach(r => { if(r['Equipment']) r['Equipment'] = normalizeEquipment(r['Equipment']); });
+    // Normalise Failure Description text (same map used for the built-in dataset)
+    // so Top-15 Failure Descriptions / Pareto charts (which group on this key) work for uploads too.
+    processed.forEach(r => {
+      const d = r['Failure Description'];
+      if (d) r['Failure Description Norm'] = FAIL_NORM[d.trim()] || d.trim();
+    });
     document.getElementById('upload-screen').style.display='none';
     document.getElementById('dashboard').style.display='block';
     bootDashboard(processed);
